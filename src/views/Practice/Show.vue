@@ -115,6 +115,21 @@ const handleCloneSuccess = (newPractice) => {
     router.push('/practices')
      alert(`Pratica ${newPractice.code} creata con successo`)
 }
+
+const canDelete = computed(() => {
+    if (!practice.value || !auth.user) return false
+    if (auth.user.role === 'admin') return true
+    
+    // Check ownership
+    if (practice.value.user_id !== auth.user.id) return false
+    
+    // Check 24h window
+    const created = new Date(practice.value.created_at)
+    const now = new Date()
+    const diffHours = (now - created) / (1000 * 60 * 60)
+    
+    return diffHours <= 24
+})
 </script>
 
 <template>
@@ -134,7 +149,7 @@ const handleCloneSuccess = (newPractice) => {
             <button @click="toggleFavorite" class="btn btn-outline">★ Preferito</button>
             <button @click="openCloneModal" class="btn btn-outline">📋 Clona</button>
             <router-link :to="`/practices/${route.params.id}/edit`" class="btn btn-primary">Modifica</router-link>
-            <button @click="deletePractice" class="btn btn-outline text-red-600 border-red-200">Elimina</button>
+            <button v-if="canDelete" @click="deletePractice" class="btn btn-outline text-red-600 border-red-200">Elimina</button>
         </div>
       </div>
       

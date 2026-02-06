@@ -101,6 +101,21 @@ watch(activeStatus, () => fetchPractices(1))
 onMounted(() => {
     fetchPractices()
 })
+
+const canDelete = (practice) => {
+    if (!auth.user) return false
+    if (auth.user.role === 'admin') return true
+    
+    // Check ownership
+    if (practice.user_id !== auth.user.id) return false
+    
+    // Check 24h window
+    const created = new Date(practice.created_at)
+    const now = new Date()
+    const diffHours = (now - created) / (1000 * 60 * 60)
+    
+    return diffHours <= 24
+}
 </script>
 
 <template>
@@ -167,7 +182,7 @@ onMounted(() => {
                     <router-link :to="`/practices/${practice.id}/edit`" class="btn btn-outline btn-sm">Modifica</router-link>
                     <button @click="openCloneModal(practice)" class="btn btn-outline btn-sm" title="Clona">📋</button>
                     <button v-if="practice.status !== 'archived'" @click="archivePractice(practice)" class="btn btn-outline btn-sm" title="Archivia">📥</button>
-                     <button @click="deletePractice(practice)" class="btn btn-outline btn-sm text-red-600 border-red-200 hover:bg-red-50" title="Elimina">🗑</button>
+                     <button v-if="canDelete(practice)" @click="deletePractice(practice)" class="btn btn-outline btn-sm text-red-600 border-red-200 hover:bg-red-50" title="Elimina">🗑</button>
                 </td>
             </tr>
              <tr v-if="practices.length === 0">
