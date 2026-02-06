@@ -41,15 +41,15 @@ const fetchPractices = async (page = 1) => {
 }
 
 const toggleFavorite = async (practice) => {
+    // Optimistic update
+    practice.is_favorite = !practice.is_favorite
+    
     try {
         await auth.api().post(`/practices/${practice.id}/favorite`)
-        // Optimistic update or refetch? Refetch is safer but slower.
-        // Assuming we need to know if it IS favorite, the index response should include that.
-        // PracticeController::index uses Practice::with('user'). It doesn't check if favorite for current user.
-        // We might need to add `withExists` or `is_favorite` attribute.
-        // For now, let's just alert/toast or assume success.
     } catch (e) {
         console.error(e)
+        // Revert on error
+        practice.is_favorite = !practice.is_favorite
     }
 }
 
@@ -162,7 +162,7 @@ onMounted(() => {
                 </td>
                 <td>{{ formatDate(practice.created_at) }}</td>
                 <td class="text-right flex justify-end gap-2">
-                    <button @click="toggleFavorite(practice)" class="btn btn-ghost btn-sm" title="Preferito">★</button>
+                    <button @click="toggleFavorite(practice)" class="btn btn-ghost btn-sm" :class="{ 'text-yellow-400': practice.is_favorite }" :style="practice.is_favorite ? 'color: #facc15 !important' : ''" title="Preferito">★</button>
                     <router-link :to="`/practices/${practice.id}`" class="btn btn-outline btn-sm">Vedi</router-link>
                     <router-link :to="`/practices/${practice.id}/edit`" class="btn btn-outline btn-sm">Modifica</router-link>
                     <button @click="openCloneModal(practice)" class="btn btn-outline btn-sm" title="Clona">📋</button>
