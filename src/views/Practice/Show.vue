@@ -1,22 +1,31 @@
 <script setup>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, computed, watch, reactive } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '../../stores/auth'
 
 const route = useRoute()
 const router = useRouter()
 const auth = useAuthStore()
-const id = route.params.id
+// id is derived from route, use it dynamically
+const getId = () => route.params.id
 
 const practice = ref(null)
 const loading = ref(true)
 const fileInput = ref(null)
 const activeTab = ref('details') // details, attachments, alyante
 
+const orderedLineage = computed(() => {
+    if (!practice.value?.lineage) return []
+    // User wants "Root" at the bottom (last node).
+    // Backend returns [Root, Child, Grandchild].
+    // So we reverse it to get [Grandchild, Child, Root].
+    return [...practice.value.lineage].reverse()
+})
+
 const fetchPractice = async () => {
     loading.value = true
     try {
-        const response = await auth.api().get(`/practices/${id}`)
+        const response = await auth.api().get(`/practices/${getId()}`)
         practice.value = response.data
     } catch (e) {
         console.error(e)
@@ -29,10 +38,14 @@ onMounted(() => {
     fetchPractice()
 })
 
+watch(() => route.params.id, (newId) => {
+    if (newId) fetchPractice()
+})
+
 const deletePractice = async () => {
     if (!confirm('Sei sicuro di voler eliminare questa pratica?')) return
     try {
-        await auth.api().delete(`/practices/${id}`)
+        await auth.api().delete(`/practices/${getId()}`)
         router.push('/practices')
     } catch (e) {
         alert('Errore eliminazione')
@@ -41,7 +54,7 @@ const deletePractice = async () => {
 
 const toggleFavorite = async () => {
     try {
-        await auth.api().post(`/practices/${id}/favorite`)
+        await auth.api().post(`/practices/${getId()}/favorite`)
         alert('Preferito aggiornato') // Simple feedback
     } catch (e) {
         console.error(e)
@@ -54,7 +67,7 @@ const uploadFile = async () => {
     
     const formData = new FormData()
     formData.append('file', file)
-    formData.append('practice_id', id)
+    formData.append('practice_id', getId())
     
     try {
         await auth.api().post('/attachments', formData, {
@@ -86,6 +99,22 @@ const isViewable = (filename) => {
     const ext = filename.split('.').pop().toLowerCase()
     return ['pdf', 'jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext)
 }
+
+// Clone Logic
+import ClonePracticeModal from '../../components/Practice/ClonePracticeModal.vue'
+
+const showCloneModal = ref(false)
+
+const openCloneModal = () => {
+    showCloneModal.value = true
+}
+
+const handleCloneSuccess = (newPractice) => {
+    showCloneModal.value = false
+    // Redirect to list view as requested
+    router.push('/practices')
+     alert(`Pratica ${newPractice.code} creata con successo`)
+}
 </script>
 
 <template>
@@ -103,7 +132,8 @@ const isViewable = (filename) => {
         </div>
         <div class="actions flex gap-2">
             <button @click="toggleFavorite" class="btn btn-outline">★ Preferito</button>
-            <router-link :to="`/practices/${id}/edit`" class="btn btn-primary">Modifica</router-link>
+            <button @click="openCloneModal" class="btn btn-outline">📋 Clona</button>
+            <router-link :to="`/practices/${route.params.id}/edit`" class="btn btn-primary">Modifica</router-link>
             <button @click="deletePractice" class="btn btn-outline text-red-600 border-red-200">Elimina</button>
         </div>
       </div>
@@ -153,17 +183,30 @@ const isViewable = (filename) => {
          </div>
          
          <div class="card">
-             <h3 class="mb-4 text-lg font-semibold border-b pb-2">Pratiche Correlate</h3>
-             <ul v-if="practice.related_practices && practice.related_practices.length" class="space-y-3">
-                 <li v-for="rel in practice.related_practices" :key="rel.id" class="flex justify-between items-center p-2 bg-gray-50 rounded">
-                     <div>
-                         <div class="font-mono font-bold text-primary">{{ rel.code }}</div>
-                         <div class="text-sm text-gray-600">{{ rel.title }}</div>
+             <h3 class="mb-4 text-lg font-semibold border-b pb-2 uppercase">Relazioni con altre pratiche</h3>
+             <div v-if="orderedLineage && orderedLineage.length" class="lineage-container relative pl-2">
+                 <!-- Vertical Line -->
+                 <div class="absolute left-[11px] top-2 bottom-6 w-0.5 bg-gray-300"></div>
+
+                 <div v-for="(node, index) in orderedLineage" :key="node.id" class="relative z-10 mb-4 flex items-center gap-3">
+                     <!-- Bullet -->
+                     <div class="flex-shrink-0 w-5 h-5 rounded-full border-2 border-gray-600 bg-white flex items-center justify-center"
+                          :class="{ 'bg-gray-800 border-gray-800': node.id === practice.id }">
+                         <div v-if="node.id === practice.id" class="w-2 h-2 rounded-full bg-white"></div>
                      </div>
-                     <router-link :to="`/practices/${rel.id}`" class="btn btn-outline btn-xs">Vai</router-link>
-                 </li>
-             </ul>
-             <p v-else class="text-muted text-sm">Nessuna pratica correlata.</p>
+                     
+                     <!-- Content -->
+                     <div class="flex-1">
+                         <span v-if="node.id === practice.id" class="font-bold text-gray-900">
+                             {{ node.code }} - {{ node.title }}
+                         </span>
+                         <router-link v-else :to="`/practices/${node.id}`" class="text-gray-600 hover:text-primary hover:underline block">
+                             {{ node.code }} - {{ node.title }}
+                         </router-link>
+                     </div>
+                 </div>
+             </div>
+             <p v-else class="text-muted text-sm">Nessuna relazione trovata.</p>
          </div>
       </div>
       
@@ -213,6 +256,13 @@ const isViewable = (filename) => {
           </div>
       </div>
   </div>
+
+    <ClonePracticeModal 
+        :isOpen="showCloneModal" 
+        :practice="practice"
+        @close="showCloneModal = false"
+        @success="handleCloneSuccess"
+    />
 </template>
 
 <style scoped>

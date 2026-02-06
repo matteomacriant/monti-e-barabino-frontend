@@ -78,6 +78,24 @@ const formatDate = (dateString) => {
     return new Date(dateString).toLocaleDateString()
 }
 
+// Clone Modal Logic
+import ClonePracticeModal from '../../components/Practice/ClonePracticeModal.vue'
+
+const showCloneModal = ref(false)
+const practiceToClone = ref(null)
+
+const openCloneModal = (practice) => {
+    practiceToClone.value = practice
+    showCloneModal.value = true
+}
+
+const handleCloneSuccess = () => {
+    showCloneModal.value = false
+    practiceToClone.value = null
+    fetchPractices(pagination.value.current_page)
+    alert('Pratica clonata con successo!')
+}
+
 watch(activeStatus, () => fetchPractices(1))
 
 onMounted(() => {
@@ -147,6 +165,7 @@ onMounted(() => {
                     <button @click="toggleFavorite(practice)" class="btn btn-ghost btn-sm" title="Preferito">★</button>
                     <router-link :to="`/practices/${practice.id}`" class="btn btn-outline btn-sm">Vedi</router-link>
                     <router-link :to="`/practices/${practice.id}/edit`" class="btn btn-outline btn-sm">Modifica</router-link>
+                    <button @click="openCloneModal(practice)" class="btn btn-outline btn-sm" title="Clona">📋</button>
                     <button v-if="practice.status !== 'archived'" @click="archivePractice(practice)" class="btn btn-outline btn-sm" title="Archivia">📥</button>
                      <button @click="deletePractice(practice)" class="btn btn-outline btn-sm text-red-600 border-red-200 hover:bg-red-50" title="Elimina">🗑</button>
                 </td>
@@ -174,7 +193,14 @@ onMounted(() => {
             Successiva
         </button>
     </div>
-  </div>
+    </div>
+
+    <ClonePracticeModal 
+        :isOpen="showCloneModal" 
+        :practice="practiceToClone"
+        @close="showCloneModal = false"
+        @success="handleCloneSuccess"
+    />
 </template>
 
 <style scoped>
