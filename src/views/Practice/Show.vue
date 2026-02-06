@@ -81,6 +81,11 @@ const formatDate = (dateString) => {
     if (!dateString) return '-'
     return new Date(dateString).toLocaleDateString()
 }
+
+const isViewable = (filename) => {
+    const ext = filename.split('.').pop().toLowerCase()
+    return ['pdf', 'jpg', 'jpeg', 'png', 'gif', 'webp'].includes(ext)
+}
 </script>
 
 <template>
@@ -171,9 +176,18 @@ const formatDate = (dateString) => {
            <ul v-if="practice.attachments.length" class="file-list mb-6">
                <li v-for="att in practice.attachments" :key="att.id">
                    <div class="flex items-center gap-3">
-                       <div class="icon">📄</div>
+                       <div class="icon">
+                           <span v-if="isViewable(att.filename)">📄</span>
+                           <span v-else>⬇️</span>
+                       </div>
                        <div>
-                           <a :href="`/storage/${att.filepath}`" target="_blank" class="font-medium hover:underline text-primary">{{ att.filename }}</a>
+                           <a :href="`/storage/${att.filepath}`" 
+                              :target="isViewable(att.filename) ? '_blank' : '_self'" 
+                              class="font-medium hover:underline text-primary"
+                              :download="!isViewable(att.filename) ? att.filename : null"
+                           >
+                               {{ att.filename }}
+                           </a>
                            <div class="text-xs text-gray-500">{{ formatDate(att.created_at) }}</div>
                        </div>
                    </div>
